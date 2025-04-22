@@ -1,0 +1,140 @@
+#include <iostream>
+#include <fstream>
+#include <cmath>
+#include <vector>
+using namespace std;
+
+int gcd(int a, int b) {
+    while (b) {
+        int t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+bool isprime(int n) {
+    if (n <= 1) return false;
+    for (int i = 2; i <= sqrt(n); i++)
+        if (n % i == 0) return false;
+    return true;
+}
+
+pair<int, int> factor_n(int n) {
+    for (int i = 2; i <= sqrt(n); ++i) {
+        if (n % i == 0 && isprime(i) && isprime(n / i)) {
+            return make_pair(i, n / i);
+        }
+    }
+    return make_pair(1, n); // fallback
+}
+
+int mod_inverse(int e, int phi) {
+    int t = 0, newt = 1;
+    int r = phi, newr = e;
+
+    while (newr != 0) {
+        int quotient = r / newr;
+        int temp = newt;
+        newt = t - quotient * newt;
+        t = temp;
+
+        temp = newr;
+        newr = r - quotient * newr;
+        r = temp;
+    }
+
+    if (r > 1) return -1; // no inverse
+    if (t < 0) t += phi;
+    return t;
+}
+
+long long mod_exp(long long base, long long exp, long long mod) {
+    long long result = 1;
+    base %= mod;
+    while (exp > 0) {
+        if (exp % 2 == 1)
+            result = result * base % mod;
+        base = base * base % mod;
+        exp /= 2;
+    }
+    return result;
+}
+
+int main() {
+    int p, q, e = 3;
+
+    cout << "Enter prime number p (<= 1000): ";
+    cin >> p;
+    cout << "Enter prime number q (<= 1000): ";
+    cin >> q;
+
+    if (!isprime(p) || !isprime(q)) {
+        cout << "Both numbers must be prime and <= 1000." << endl;
+        return 1;
+    }
+
+    int n = p * q;
+    int phi = (p - 1) * (q - 1);
+
+    while (gcd(e, phi) != 1) e += 2;
+    int d = mod_inverse(e, phi);
+
+    if (d == -1) {
+        cout << "Failed to compute modular inverse!" << endl;
+        return 1;
+    }
+
+    string plaintext;
+    cout << "Enter plaintext (e.g., 'hello'): ";
+    cin.ignore();
+    getline(cin, plaintext);
+
+    vector<long long> ciphertext;
+
+    for (char c : plaintext) {
+        long long m = (int)c;
+        long long y = mod_exp(m, e, n); // encryption
+        ciphertext.push_back(y);
+    }
+
+    // Save to file
+    ofstream out("ciphertext.txt");
+    for (long long y : ciphertext)
+        out << y << " ";
+    out << "\n" << n << " " << e;
+    out.close();
+
+    cout << "\nEncrypted ciphertext saved to file.\n";
+
+    vector<long long> read_y;
+    int read_n, read_e;
+
+    ifstream in("ciphertext.txt");
+    long long temp_y;
+    while (in >> temp_y) {
+        if (in.peek() == '\n') break;
+        read_y.push_back(temp_y);
+    }
+    in >> read_n >> read_e;
+    in.close();
+
+    cout << "\nRead from file:\nCiphertext: ";
+    for (auto val : read_y) cout << val << " ";
+    cout << "\nn: " << read_n << ", e: " << read_e << endl;
+
+    pair<int, int> primes = factor_n(read_n);
+    int fact_p = primes.first, fact_q = primes.second;
+    int recovered_phi = (fact_p - 1) * (fact_q - 1);
+    int recovered_d = mod_inverse(read_e, recovered_phi);
+
+    string decrypted_text = "";
+    for (long long y : read_y) {
+        long long m = mod_exp(y, recovered_d, read_n);
+        decrypted_text += (char)m;
+    }
+
+    cout << "Decrypted plaintext: " << decrypted_text << endl;
+
+    return 0;
+}
